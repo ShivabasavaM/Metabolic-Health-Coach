@@ -60,9 +60,12 @@ def handle_message(message):
         bot.reply_to(message, "Sorry, my brain encountered a small glitch. Try again!")
 
 def run_bot():
+    """Runs the Telegram polling loop in the background."""
     print("🤖 Metabolic-Health-Coach Telegram Listener is Awake...")
     bot.infinity_polling()
 
 @app.on_event("startup")
 def startup_event():
+    """Starts the bot thread when FastAPI starts."""
+    import threading
     threading.Thread(target=run_bot, daemon=True).start()
