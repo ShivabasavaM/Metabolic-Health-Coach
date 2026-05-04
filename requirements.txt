@@ -1,15 +1,10 @@
-# Web & Bot Frameworks
 fastapi
 uvicorn
 pyTelegramBotAPI==4.15.2
-
-# AI & Graph Logic
 langchain-core
 langchain-google-genai
 langgraph
 langgraph-checkpoint-postgres
-
-# Database & Integration
 psycopg2-binary==2.9.9
 psycopg
 psycopg-pool

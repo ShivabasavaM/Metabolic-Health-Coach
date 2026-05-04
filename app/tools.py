@@ -12,18 +12,13 @@ def log_food(food_name: str, calories: int):
     conn = database.get_connection()
     if not conn: return "Database Error."
     cursor = conn.cursor()
-    
-    cursor.execute(
-        "INSERT INTO daily_logs (date, user_id, food_name, calories_in) VALUES (CURRENT_DATE, 1, %s, %s)", 
-        (food_name, calories)
-    )
-    
+    cursor.execute("INSERT INTO daily_logs (date, user_id, food_name, calories_in) VALUES (CURRENT_DATE, 1, %s, %s)", (food_name, calories))
     cursor.execute("DELETE FROM daily_logs WHERE user_id = 1 AND date < CURRENT_DATE - INTERVAL '3 days'")
-    
     conn.commit()
     cursor.close()
-    database.release_connection(conn)
-    return f"Successfully logged {food_name} ({calories} kcal). History pruned to last 3 days."
+    database.release_connection(conn) # Use release, not close
+    return f"Successfully logged {food_name} ({calories} kcal)."
+
 
 @tool
 def reset_profile():
