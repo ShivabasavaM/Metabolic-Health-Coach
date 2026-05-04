@@ -26,7 +26,7 @@ bot = telebot.TeleBot(TELEGRAM_TOKEN)
 def handle_message(message):
     user_id = str(message.chat.id)
     user_text = message.text
-    database.mark_user_active()
+    database.mark_user_active() 
     
     print(f"📩 [{user_id}]: {user_text}")
     bot.send_chat_action(chat_id=user_id, action='typing')
@@ -38,7 +38,7 @@ def handle_message(message):
             config=config
         )
 
-        ai_reply = "I saved that to your log!" 
+        ai_reply = "I processed your request." 
         for msg in reversed(result["messages"]):
             if msg.type == "ai":
                 if isinstance(msg.content, str) and msg.content.strip():
@@ -59,9 +59,11 @@ def handle_message(message):
         bot.reply_to(message, "Sorry, my brain encountered a small glitch. Try again!")
 
 def run_bot():
+    """This function runs the bot forever in the background."""
     print("🤖 Metabolic-Health-Coach Telegram Listener is Awake...")
     bot.infinity_polling()
 
 @app.on_event("startup")
 def startup_event():
+    """This starts the bot thread as soon as FastAPI starts."""
     threading.Thread(target=run_bot, daemon=True).start()
