@@ -1,20 +1,13 @@
-# AI & Graph
-langchain-core
-langchain-google-genai
-langgraph
-langgraph-checkpoint-postgres
-
-# Database
-psycopg2-binary==2.9.9
-psycopg
-psycopg-pool
-
-# Integrations
 pyTelegramBotAPI==4.15.2
 fitbit
 requests
 fastapi
 uvicorn
-
-# Environment
 python-dotenv
+langchain-core
+langchain-google-genai
+langgraph
+langgraph-checkpoint-postgres
+psycopg2-binary==2.9.9
+psycopg
+psycopg-pool
