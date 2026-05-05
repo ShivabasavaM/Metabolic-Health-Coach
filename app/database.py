@@ -30,11 +30,6 @@ def get_connection():
             db_pool.putconn(conn, close=True)
         return db_pool.getconn()
 
-def release_connection(conn):
-    """Returns the connection to the pool."""
-    if db_pool and conn:
-        db_pool.putconn(conn)
-
 def init_db():
     conn = get_connection()
     if not conn: return
@@ -53,27 +48,20 @@ def init_db():
     )
     """)
 
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
-        print("✅ Migration: added 'last_active' column to users table.")
-    except Exception:
-        pass
-
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS daily_logs (
-        id SERIAL PRIMARY KEY,
-        date DATE DEFAULT CURRENT_DATE,
-        user_id INTEGER REFERENCES users(id),
-        food_name TEXT,
-        calories_in INTEGER
-    )
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name='users' AND column_name='last_active';
     """)
+    if not cursor.fetchone():
+        cursor.execute("ALTER TABLE users ADD COLUMN last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+        print("✅ Migration: added 'last_active' column.")
+    else:
+        print("ℹ️ Migration: 'last_active' already exists, skipping.")
 
-    cursor.execute("INSERT INTO users (id) VALUES (1) ON CONFLICT (id) DO NOTHING")
     conn.commit()
     cursor.close()
-    release_connection(conn)
-
+    database.release_connection(conn)
 def update_tokens(access_token, refresh_token, expires_at):
     conn = get_connection()
     cursor = conn.cursor()
