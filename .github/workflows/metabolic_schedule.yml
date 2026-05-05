@@ -2,14 +2,11 @@ name: Metabolic Health Coach Schedule
 
 on:
   schedule:
-    # 8:00 AM IST is 02:30 UTC
-    - cron: '30 2 * * *'
-    # 2:00 PM IST is 08:30 UTC
-    - cron: '30 8 * * *'
-    # 9:00 PM IST is 15:30 UTC
-    - cron: '30 15 * * *'
-    # 11:00 PM IST is 17:30 UTC
-    - cron: '30 17 * * *'
+    - cron: '30 2 * * *'   # 08:00 AM IST (Breakfast)
+    - cron: '30 8 * * *'   # 02:00 PM IST (Lunch)
+    - cron: '30 15 * * *'  # 09:00 PM IST (Dinner)
+    - cron: '30 17 * * *'  # 11:00 PM IST (Night)
+  workflow_dispatch:        # Allows you to test it manually from the "Actions" tab
 
 jobs:
   notify:
@@ -21,28 +18,34 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.14' 
+          python-version: '3.12' # Stable version matching Render
 
       - name: Install Dependencies
         run: |
-          pip install requests psycopg2-binary
-          
-      - name: Determine Meal Type & Run Nudge
+          pip install -r requirements.txt
+          # If you don't have a requirements.txt, use:
+          # pip install requests psycopg2-binary langchain-google-genai langgraph
+
+      - name: Run Metabolic Nudge
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           FITBIT_CLIENT_ID: ${{ secrets.FITBIT_CLIENT_ID }}
           FITBIT_CLIENT_SECRET: ${{ secrets.FITBIT_CLIENT_SECRET }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }} # Don't forget this for the AI brain!
         run: |
+          # Robust hour check: looks at the cron trigger time
           HOUR=$(date +'%H')
-          if [ "$HOUR" == "02" ]; then
+          echo "Current UTC Hour: $HOUR"
+          
+          if [ "$HOUR" == "02" ] || [ "$HOUR" == "03" ]; then
             python metabolic_nudge.py breakfast
-          elif [ "$HOUR" == "08" ]; then
+          elif [ "$HOUR" == "08" ] || [ "$HOUR" == "09" ]; then
             python metabolic_nudge.py lunch
-          elif [ "$HOUR" == "15" ]; then
+          elif [ "$HOUR" == "15" ] || [ "$HOUR" == "16" ]; then
             python metabolic_nudge.py dinner
-          elif [ "$HOUR" == "17" ]; then
+          elif [ "$HOUR" == "17" ] || [ "$HOUR" == "18" ]; then
             python metabolic_nudge.py night
           else
             python metabolic_nudge.py general
