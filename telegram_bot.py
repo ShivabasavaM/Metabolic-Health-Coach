@@ -1,86 +1,87 @@
 import os
 import telebot
-import warnings
-import threading
+from fastapi import FastAPI, Request, Response
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from dotenv import load_dotenv
-from langchain_core.messages import HumanMessage
 
-# Silence Pydantic and User warnings (to clean up your terminal)
-warnings.filterwarnings("ignore", category=UserWarning)
-
-# Import custom modules
-from app import database
+# Import your stateful LangGraph agent orchestrator
 from app.brain import app_graph 
 
-load_dotenv()
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+# Note: threaded=False is critical when running inside an async ASGI server like Uvicorn
+bot = telebot.TeleBot(TOKEN, threaded=False)  
 
-# 1. Initialize Telegram Bot
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-bot = telebot.TeleBot(TELEGRAM_TOKEN)
-
-def run_bot():
-    """Runs the Telegram polling loop in the background."""
-    print("🤖 Metabolic-Health-Coach Telegram Listener is Awake...")
-    bot.infinity_polling()
-
-# 2. Modern Lifespan Manager (replaces deprecated @app.on_event)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # This code runs ON STARTUP
-    thread = threading.Thread(target=run_bot, daemon=True)
-    thread.start()
+    """
+    Lifecycle manager that automatically registers the webhook URL with Telegram 
+    when the Render container spins up, and tears it down on shutdown.
+    """
+    # Render automatically provisions this environment variable for web services
+    base_url = os.getenv("RENDER_EXTERNAL_URL")
+    
+    if base_url:
+        webhook_url = f"{base_url}/webhook"
+        bot.remove_webhook()
+        success = bot.set_webhook(url=webhook_url)
+        if success:
+            print(f"🚀 Webhook successfully registered at: {webhook_url}")
+        else:
+            print("❌ Failed to register webhook with Telegram.")
+    else:
+        print("⚠️ RENDER_EXTERNAL_URL not found. Webhook registration skipped (Local mode).")
+        
     yield
-    # Code here would run ON SHUTDOWN (if needed)
+    
+    # Graceful shutdown cleanup
+    print("Shutting down... removing webhook from Telegram.")
+    bot.remove_webhook()
 
-# 3. Initialize FastAPI with lifespan
+# Initialize FastAPI with our lifecycle hook
 app = FastAPI(lifespan=lifespan)
 
-@app.get("/")
-def health_check():
-    return {"status": "Metabolic-Health-Coach is Awake 🧬"}
-
 @bot.message_handler(func=lambda message: True)
-def handle_message(message):
-    user_id = str(message.chat.id)
-    user_text = message.text
-    
-    # Marks user active in PostgreSQL
-    database.mark_user_active() 
-    
-    print(f"📩 [{user_id}]: {user_text}")
-    bot.send_chat_action(chat_id=user_id, action='typing')
-
+def handle_agent_logic(message):
+    """
+    Core handler that routes incoming text messages from your Telegram bot
+    directly through your LangGraph conversational agent pipeline.
+    """
     try:
-        config = {"configurable": {"thread_id": user_id}}
-        result = app_graph.invoke(
-            {"messages": [HumanMessage(content=user_text)]}, 
-            config=config
-        )
-
-        ai_reply = "I processed your request." 
-        for msg in reversed(result["messages"]):
-            if msg.type == "ai":
-                if isinstance(msg.content, str) and msg.content.strip():
-                    ai_reply = msg.content
-                    break
-                elif isinstance(msg.content, list):
-                    extracted = " ".join(
-                        str(item.get("text", "")) for item in msg.content if isinstance(item, dict) and "text" in item
-                    )
-                    if extracted.strip():
-                        ai_reply = extracted
-                        break
+        user_query = message.text
+        chat_id = message.chat.id
         
-        bot.reply_to(message, ai_reply)
-        print("✅ Reply sent.")
+        # 🔗 Invoke your LangGraph state machine using the user's Chat ID as the thread_id
+        response = app_graph.invoke(
+            {"messages": [user_query]}, 
+            config={"configurable": {"thread_id": chat_id}}
+        )
+        
+        # Extract the content of the final AI message from the graph state
+        final_reply = response["messages"][-1].content
+        
+        # Reply directly back to the user on Telegram
+        bot.reply_to(message, final_reply)
+        
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"❌ AI Brain Orchestration Error: {e}")
         bot.reply_to(message, "Sorry, my brain encountered a small glitch. Try again!")
 
-# 4. Local execution block
-if __name__ == "__main__":
-    import uvicorn
-    # This keeps the script running on your local machine
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+@app.post("/webhook")
+async def telegram_webhook(request: Request):
+    """
+    Inbound endpoint targeted by Telegram whenever a user sends a message.
+    This inbound payload wakes Render up automatically from a cold sleep.
+    """
+    if request.headers.get("content-type") == "application/json":
+        json_string = await request.json()
+        update = telebot.types.Update.de_json(json_string)
+        
+        # Pass the parsed update structure into pyTelegramBotAPI internal router
+        bot.process_new_updates([update])
+        return Response(status_code=200)
+    else:
+        return Response(status_code=403)
+
+@app.get("/health")
+def health_check():
+    """Liveness probe used by Render to monitor application health."""
+    return {"status": "healthy"}
