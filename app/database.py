@@ -14,6 +14,15 @@ except Exception as e:
     print(f"❌ Connection Pool Error: {e}")
     db_pool = None
 
+def release_connection(conn):
+    """Safely returns a connection back to the PostgreSQL pool."""
+    try:
+        if conn and db_pool:
+            db_pool.putconn(conn)  
+            print("💾 Connection successfully returned to pool.")
+    except Exception as e:
+        print(f"⚠️ Failed to release connection: {e}")
+
 def get_connection():
     """Fetches a connection and ensures it is still alive."""
     global db_pool
@@ -62,6 +71,7 @@ def init_db():
     conn.commit()
     cursor.close()
     database.release_connection(conn)
+
 def update_tokens(access_token, refresh_token, expires_at):
     conn = get_connection()
     cursor = conn.cursor()
