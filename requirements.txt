@@ -1,6 +1,6 @@
-fastapi
-uvicorn
-pyTelegramBotAPI==4.15.2
+fastapi==0.110.0
+uvicorn==0.28.0
+pyTelegramBotAPI==4.16.1
 langchain-core
 langchain-google-genai
 langgraph
@@ -10,14 +10,5 @@ psycopg[binary]
 psycopg-pool
 fitbit
 requests
+pydantic
 python-dotenv
-fastapi==0.110.0
-uvicorn==0.28.0
-pyTelegramBotAPI==4.16.1
-langgraph==0.0.30
-langchain-core==0.1.33
-langchain-google-genai==1.0.1
-psycopg2-binary==2.9.9
-pydantic==2.6.4
-requests==2.31.0
-python-dotenv==1.0.1
