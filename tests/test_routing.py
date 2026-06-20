@@ -66,7 +66,7 @@ EVALUATION_DATASET = [
 #     ("Can you book a flight to Paris?", None, {}),
 #     ("Tell me a joke.", None, {}),
 #     ("Who won the World Cup?", None, {})
-# ]
+]
 
 @pytest.mark.parametrize("user_input, expected_tool, expected_args", EVALUATION_DATASET)
 def test_agent_tool_routing(user_input, expected_tool, expected_args):
