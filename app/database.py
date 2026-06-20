@@ -56,6 +56,19 @@ def init_db():
         daily_calorie_target INTEGER
     )
     """)
+    
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS workouts (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        date DATE DEFAULT CURRENT_DATE,
+        exercise_type TEXT,
+        sets INTEGER,
+        reps INTEGER,
+        duration_minutes INTEGER
+    )
+    """)
+    print("✅ Migration: 'workouts' table verified.")
 
     cursor.execute("""
         SELECT column_name 
@@ -101,3 +114,5 @@ def mark_user_active():
     conn.commit()
     cursor.close()
     release_connection(conn)
+
+    

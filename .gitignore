@@ -1,17 +1,17 @@
-# Environments
-.env
+# Virtual Environments
 venv/
 env/
 
-# Databases & Old Data Files
-*.sqlite
-*.db
-nutriagent.db
-fitbit_tokens.json
-user_profile.json
-data/
+# Secrets & API Keys (CRITICAL)
+.env
+gcp-key.json
+*.pem
 
-# Python Cache
+# Python Caches & Testing
 __pycache__/
-*.py[cod]
-*$py.class
+*.pyc
+*.pyo
+.pytest_cache/
+
+# OS System Files (Since you are on a Mac)
+.DS_Store

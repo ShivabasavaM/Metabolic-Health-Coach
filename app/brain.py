@@ -13,15 +13,14 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import SystemMessage
 
-from app.tools import get_health_status, log_food, update_profile, reset_profile, get_historical_summary
-from app import database
+from app.tools import get_health_status, log_food, update_profile, reset_profile, get_historical_summary, log_workout, generate_workout_plan
 
 load_dotenv()
 DB_URL = os.getenv("DATABASE_URL")
 class State(TypedDict):
     messages: Annotated[list, add_messages]
 
-tools = [get_health_status, log_food, update_profile, reset_profile, get_historical_summary]
+tools = [get_health_status, log_food, update_profile, reset_profile, get_historical_summary, log_workout, generate_workout_plan]
 llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
 llm_with_tools = llm.bind_tools(tools)
 
@@ -29,16 +28,14 @@ llm_with_tools = llm.bind_tools(tools)
 def get_db_context():
     """Fetches real-time DB state to inject into the prompt."""
     conn = database.get_connection()
-    if not conn: return None, ""
-    
-    # 2. Add cursor_factory here to allow dictionary-style access
+    if not conn: return None,
+ 
     cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     
     cursor.execute("SELECT weight, daily_calorie_target FROM users WHERE id = 1")
     user = cursor.fetchone()
     
     history_text = "No recent food history."
-    # Now user['daily_calorie_target'] will work perfectly!
     if user and user['daily_calorie_target']:
         cursor.execute("""
             SELECT date, SUM(calories_in) as total 
@@ -47,11 +44,10 @@ def get_db_context():
         """)
         history = cursor.fetchall()
         if history:
-            # history[0]['date'] will also work now!
             history_text = ", ".join([f"{h['date']}: {h['total']}kcal" for h in history])
             
     cursor.close()
-    database.release_connection(conn) # 3. Use release_connection, not conn.close()
+    database.release_connection(conn)
     return user, history_text
 
 def chatbot(state: State):
@@ -73,16 +69,38 @@ def chatbot(state: State):
     # STATE B: ACTIVE TRACKING
     else:
         system_prompt = SystemMessage(content=(
-            f"You are Metabolic-Health Coach. The user's active goal is {target} kcal/day.\n"
+            f"You are the Metabolic-Health & Fitness Coach. The user's active goal is {target} kcal/day.\n"
             f"Last 3 Days Eaten: {history_text}\n\n"
             "RULES:\n"
-            "1. ONLY use `log_food` if the user explicitly says they ate something.\n"
-            "2. If they ask for averages or progress, use the 3-day history provided above.\n"
-            "3. If they say 'reset' or 'start over', use the `reset_profile` tool immediately.\n"
-            "4. Keep responses conversational, short, and to the point."
+            "1. NUTRITION: Use `log_food` ONLY if the user explicitly says they ate something.\n"
+            "2. FITNESS TRACKING: Use `log_workout` ONLY if they explicitly state they completed an exercise.\n"
+            "3. FITNESS COACHING: Use `generate_workout_plan` if they ask for gym recommendations or routines.\n"
+            "4. Keep responses conversational, highly encouraging, and strictly formatted. Do not lecture."
         ))
-    
-    messages_to_pass = [system_prompt] + state["messages"]
+
+    raw_messages = state["messages"]
+
+    if len(raw_messages) > 10:
+        historical_block = raw_messages[:-4]
+        recent_block = raw_messages[-4:]
+
+        history_summary_text = "\n".join([
+            f"{msg.type.upper()}: {msg.content}" 
+            for msg in historical_block 
+            if msg.content and msg.type in ["human", "ai"]
+        ])
+
+        memory_prompt = SystemMessage(content=(
+            f"--- OLDER CONVERSATION MEMORY ---\n{history_summary_text}\n"
+            "---------------------------------\n"
+            "Use the above memory if needed, but prioritize the immediate recent messages below."
+        ))
+
+        messages_to_pass = [system_prompt, memory_prompt] + recent_block
+        print(f"✂️ Context Pruned: Compressed {len(raw_messages)} messages to save tokens.")
+    else:
+        messages_to_pass = [system_prompt] + raw_messages
+
     response = llm_with_tools.invoke(messages_to_pass)
     return {"messages": [response]}
 
