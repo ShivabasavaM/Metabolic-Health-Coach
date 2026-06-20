@@ -5,7 +5,6 @@ from app.fitbit_client import FitbitClient
 from app import database
 from pydantic import BaseModel, Field
 
-fitbit = FitbitClient()
 
 class LogWorkoutSchema(BaseModel):
     exercise_type: str = Field(description="Name of the exercise")
@@ -91,7 +90,6 @@ def update_profile(weight: float, target_calories: int):
 @tool
 def get_health_status():
     """Fetches user's daily calorie goal, logged food, and Fitbit biometrics (Calories & Sleep)."""
-    from app.fitbit_client import FitbitClient
     fitbit = FitbitClient()
     
     conn = database.get_connection()
