@@ -91,9 +91,12 @@ def update_profile(weight: float, target_calories: int):
 @tool
 def get_health_status():
     """Fetches user's daily calorie goal, logged food, and Fitbit biometrics (Calories & Sleep)."""
+    from app.fitbit_client import FitbitClient
+    fitbit = FitbitClient()
+    
     conn = database.get_connection()
     if not conn: return "Database Error."
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) # Need RealDictCursor here
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) 
     
     cursor.execute("SELECT daily_calorie_target FROM users WHERE id = 1")
     row = cursor.fetchone()
@@ -105,7 +108,6 @@ def get_health_status():
     
     cursor.close()
     database.release_connection(conn)
-
     burned = fitbit.get_calories_today()
     sleep_mins = fitbit.get_sleep_today()
     sleep_hours = round(sleep_mins / 60, 1)
