@@ -100,5 +100,3 @@ class FitbitClient:
             else:
                 print(f"❌ [Fitbit] API Error: {response.text}")
                 return 0
-
-fitbit = FitbitClient()
